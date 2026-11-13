@@ -12,6 +12,10 @@ void main() {
           color: 'cream',
           colorHex: '#D9CDB8',
           image: 'https://example.test/shirt.jpg',
+          brand: 'Atelier',
+          tags: ['rain-ready'],
+          status: 'Laundry',
+          laundryStartedAt: '2026-09-30T08:00:00.000Z',
         ),
       ],
       looks: {
@@ -19,6 +23,8 @@ void main() {
           title: 'Easy layers',
           items: ['top-1'],
           note: 'Light and easy',
+          event: 'Studio meeting',
+          eventTime: '09:30',
         ),
       },
     );
@@ -27,5 +33,18 @@ void main() {
     expect(decoded.items.single.name, 'Linen shirt');
     expect(decoded.looks['2026-09-30']?.items, ['top-1']);
     expect(decoded.looks['2026-09-30']?.note, 'Light and easy');
+    expect(decoded.items.single.brand, 'Atelier');
+    expect(decoded.items.single.tags, ['rain-ready']);
+    expect(decoded.items.single.status, 'Laundry');
+    expect(decoded.looks['2026-09-30']?.event, 'Studio meeting');
+    expect(decoded.looks['2026-09-30']?.eventTime, '09:30');
+  });
+
+  test('legacy wardrobe JSON receives safe defaults for AuraShift fields', () {
+    final decoded = WardrobeData.decode('{"items":[{"id":"legacy","name":"Shirt","category":"Top","color":"blue","colorHex":"#6487A5","image":"","status":"Washing"}],"looks":{},"settings":{}}');
+    expect(decoded.items.single.status, 'Laundry');
+    expect(decoded.items.single.brand, isEmpty);
+    expect(decoded.settings['colorBlindMode'], 'None');
+    expect(decoded.settings['timerMinutes'], 20);
   });
 }

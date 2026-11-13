@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 mobile_app/.dart_tool/
 mobile_app/build/
 

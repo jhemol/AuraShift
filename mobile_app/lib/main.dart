@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'wardrobe_models.dart';
 import 'wardrobe_store.dart';
+import 'carousel_3d.dart';
 
 const _ink = Color(0xFF28362E);
 const _muted = Color(0xFF818980);
@@ -463,8 +464,47 @@ class _OutfitComposerState extends State<OutfitComposer> {
   }
 
   Widget _preview(List<ClothingItem> items) {
-    if (items.isEmpty) return Container(height: 118, width: double.infinity, decoration: BoxDecoration(color: const Color(0xFFE9ECE5), borderRadius: BorderRadius.circular(18), boxShadow: const [BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 9), BoxShadow(color: Color(0x22353E35), offset: Offset(4, 4), blurRadius: 9)]), child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.checkroom_rounded, color: _fern), SizedBox(width: 8), Text('Tap pieces below to preview your look', style: TextStyle(color: _muted, fontSize: 12))]));
-    return Container(height: 132, width: double.infinity, padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: const Color(0xFFE9ECE5), borderRadius: BorderRadius.circular(18), boxShadow: const [BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 9), BoxShadow(color: Color(0x22353E35), offset: Offset(4, 4), blurRadius: 9)]), child: Row(children: [for (final item in items.take(4)) Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: ClipRRect(borderRadius: BorderRadius.circular(12), child: Stack(fit: StackFit.expand, children: [_clothingImage(item), Align(alignment: Alignment.bottomCenter, child: ClipRRect(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8), child: Container(width: double.infinity, color: Colors.white.withValues(alpha: .78), padding: const EdgeInsets.symmetric(vertical: 5), child: Text(item.category, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700))))))])))]));
+    if (items.isEmpty) {
+      return Container(
+        height: 140,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE9ECE5),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 9),
+            BoxShadow(color: Color(0x22353E35), offset: Offset(4, 4), blurRadius: 9)
+          ],
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.checkroom_rounded, color: _fern),
+            SizedBox(width: 8),
+            Text('Tap pieces below to preview your look', style: TextStyle(color: _muted, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+    return Container(
+      height: 160,
+      width: double.infinity,
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9ECE5),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: Colors.white, offset: Offset(-4, -4), blurRadius: 9),
+          BoxShadow(color: Color(0x22353E35), offset: Offset(4, 4), blurRadius: 9)
+        ],
+      ),
+      child: Carousel3D(
+        items: items,
+        height: 140,
+        itemWidth: 90,
+      ),
+    );
+  }
   }
 
   Widget _clothingImage(ClothingItem item) {

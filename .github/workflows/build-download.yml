@@ -57,6 +57,29 @@ jobs:
           cp -R mobile_app/lib mobile_app_build/lib
           cp -R mobile_app/test mobile_app_build/test
 
+      - name: Configure Android notification desugaring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          gradle_file = Path("mobile_app_build/android/app/build.gradle.kts")
+          source = gradle_file.read_text()
+          if "isCoreLibraryDesugaringEnabled" not in source:
+              if "compileOptions {" not in source:
+                  raise SystemExit("Flutter Android Gradle compileOptions block was not found.")
+              source = source.replace(
+                  "compileOptions {",
+                  "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
+                  1,
+              )
+          if "desugar_jdk_libs" not in source:
+              dependency_block = '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+              if "\nflutter {" not in source:
+                  raise SystemExit("Flutter Android Gradle insertion point was not found.")
+              source = source.replace("\nflutter {", dependency_block + "\nflutter {", 1)
+          gradle_file.write_text(source)
+          PY
+
       - name: Install Flutter dependencies
         run: flutter pub get
         working-directory: mobile_app_build

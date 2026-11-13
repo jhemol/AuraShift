@@ -6,8 +6,16 @@ import { createMemoryStore, createPostgresStore } from './stateStore.js'
 
 export function createApp(store) {
   const app = express()
-  app.use(express.json({ limit: '1mb' }))
-  app.get('/api/health', (_request, response) => response.json({ ok: true }))
+  app.use(express.json({ limit: '8mb' }))
+  app.get('/api/health', async (_request, response) => {
+    try {
+      await store.check?.()
+      response.json({ ok: true, storage: store.storage ?? 'unknown' })
+    } catch (error) {
+      console.error('Storage health check failed:', error.message)
+      response.status(503).json({ ok: false, error: 'Storage unavailable.' })
+    }
+  })
   app.get('/api/state', async (_request, response) => {
     response.json(await store.get())
   })
@@ -24,11 +32,21 @@ export function createApp(store) {
   return app
 }
 
-async function start() {
+export function createConfiguredStore({ max = 5 } = {}) {
   const pool = process.env.DATABASE_URL
-    ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : undefined })
+    ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined,
+      max,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 30_000,
+    })
     : null
-  const store = pool ? createPostgresStore(pool) : createMemoryStore()
+  return { pool, store: pool ? createPostgresStore(pool) : createMemoryStore() }
+}
+
+async function start() {
+  const { pool, store } = createConfiguredStore()
   if (pool) await store.initialize()
   const port = Number(process.env.API_PORT || 5174)
   const server = createApp(store).listen(port, () => {

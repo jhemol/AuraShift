@@ -1,0 +1,17 @@
+{
+  "name": "AuraShift",
+  "short_name": "AuraShift",
+  "description": "A personal wardrobe, outfit calendar, and color companion.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eee9e2",
+  "theme_color": "#eee9e2",
+  "icons": [
+    {
+      "src": "/aura-mark.png",
+      "sizes": "768x768",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
