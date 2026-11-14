@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'wardrobe_models.dart';
 
@@ -13,7 +14,10 @@ class WardrobeStore {
 
   Future<WardrobeData> load() async {
     final preferences = await SharedPreferences.getInstance();
-    final cached = preferences.getString(_storageKey);
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return WardrobeData();
+    final userStorageKey = '$_storageKey:$userId';
+    final cached = preferences.getString(userStorageKey);
     WardrobeData? local;
     if (cached != null) {
       try {
@@ -25,12 +29,17 @@ class WardrobeStore {
 
     if (apiBaseUrl.isNotEmpty) {
       try {
-        final response = await http.get(Uri.parse('$apiBaseUrl/api/state')).timeout(const Duration(seconds: 5));
+        final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+        if (accessToken == null) return local ?? WardrobeData();
+        final response = await http.get(
+          Uri.parse('$apiBaseUrl/api/state'),
+          headers: {'authorization': 'Bearer $accessToken'},
+        ).timeout(const Duration(seconds: 5));
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body);
-          if (decoded is Map<String, dynamic> && decoded['items'] is List && (decoded['items'] as List).isNotEmpty) {
+          if (decoded is Map<String, dynamic> && decoded['items'] is List) {
             final data = WardrobeData.fromJson(decoded);
-            await preferences.setString(_storageKey, data.encode());
+            await preferences.setString(userStorageKey, data.encode());
             return data;
           }
         }
@@ -45,14 +54,19 @@ class WardrobeStore {
   Future<void> save(WardrobeData data) async {
     final encoded = data.encode();
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_storageKey, encoded);
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+    await preferences.setString('$_storageKey:${session.user.id}', encoded);
     if (apiBaseUrl.isEmpty) return;
 
     try {
       await http
           .put(
             Uri.parse('$apiBaseUrl/api/state'),
-            headers: {'content-type': 'application/json'},
+            headers: {
+              'authorization': 'Bearer ${session.accessToken}',
+              'content-type': 'application/json',
+            },
             body: encoded,
           )
           .timeout(const Duration(seconds: 5));

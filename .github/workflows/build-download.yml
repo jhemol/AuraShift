@@ -89,7 +89,15 @@ jobs:
         working-directory: mobile_app_build
 
       - name: Build native Android debug APK
-        run: flutter build apk --debug
+        env:
+          WARDROBE_API_URL: ${{ vars.WARDROBE_API_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: >-
+          flutter build apk --debug
+          --dart-define=WARDROBE_API_URL="$WARDROBE_API_URL"
+          --dart-define=SUPABASE_URL="$SUPABASE_URL"
+          --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
         working-directory: mobile_app_build
 
       - name: Upload Android APK

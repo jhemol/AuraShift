@@ -22,19 +22,25 @@ The frontend is available at `http://localhost:5173`; the API listens at `http:/
 The browser and mobile apps connect to the Express API; the database URL stays on the server and must never be added to frontend variables or committed.
 
 1. In Supabase, open **Project Settings → Database → Connect** and copy a pooler connection string. Use the **Session pooler** for the long-running local API; for Vercel's serverless API, use the **Transaction pooler**. Both avoid requiring an IPv6-only direct connection.
-2. For local development, copy `.env.example` to `.env` and set `DATABASE_URL` to the pooler URL. Use the exact host and username shown by Supabase, and URL-encode special characters in the database password.
+2. For local development, copy `.env.example` to `.env` and set `DATABASE_URL` to the pooler URL. Use the exact host and username shown by Supabase, and URL-encode special characters in the database password. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from Project Settings → API; set the `VITE_` equivalents for the web sign-in screen.
 3. Keep `PGSSLMODE=require` so the API verifies the TLS certificate. Download the database CA certificate from **Project Settings → Database → SSL Configuration**, save it as `.supabase/prod-ca-2021.crt`, and keep `PGSSLROOTCERT=.supabase/prod-ca-2021.crt` in `.env`. Never disable certificate verification for a hosted database.
-4. In Supabase **SQL Editor**, run `server/schema.sql` to create the `wardrobe_state` table, or let the API create it on startup. Start the app with `npm run dev:all`; the Vite `/api` proxy forwards requests to the database-backed API. Check `http://localhost:5174/api/health` for `{ "ok": true, "storage": "postgres" }` to confirm the API can reach Supabase.
+4. In Supabase **SQL Editor**, run `server/schema.sql` to create the per-user `wardrobe_user_state` table and enable row-level security. The API also creates it on startup. The old `wardrobe_state` table is retained and locked down; to move its data, first create an account, then set `WARDROBE_LEGACY_OWNER_ID` to that account's user UUID in the server environment and restart the API. Start the app with `npm run dev:all`; the Vite `/api` proxy forwards requests to the database-backed API. Check `http://localhost:5174/api/health` for `{ "ok": true, "storage": "postgres" }` to confirm the API can reach Supabase.
+
+The web app supports email/password account creation and sign-in. Mobile signs in with the same account. Each account's API and database state is isolated by its verified Supabase access token; the browser/native app also keeps a separate local cache per account.
+
+In Supabase **Authentication → URL Configuration**, set the deployed web URL as the Site URL and add it to the Redirect URLs. Enable email/password sign-up; users create their account in the web app, confirm their email if required, then use the same credentials in the Android app.
 
 ### Deploy to Vercel
 
-The repository includes Vercel configuration for the Vite site and a serverless `/api` function. Import the GitHub repository into Vercel; it builds with `npm run build` and serves the `dist` output. In the Vercel project's **Settings → Environment Variables**, set `DATABASE_URL` to the Supabase **Transaction pooler** connection string, `PGSSLMODE` to `require`, and `PGSSLROOTCERT` to the contents of the downloaded CA certificate for Production (and Preview if needed). These are server-side variables; do not prefix them with `VITE_`. Redeploy after setting or changing them. Check `https://<your-deployment>/api/health` and expect `{ "ok": true, "storage": "postgres" }`.
+The repository includes Vercel configuration for the Vite site and a serverless `/api` function. Import the GitHub repository into Vercel; it builds with `npm run build` and serves the `dist` output. In the Vercel project's **Settings → Environment Variables**, configure server-side `DATABASE_URL` (Supabase Transaction pooler), `PGSSLMODE=require`, `PGSSLROOTCERT` (contents of the CA certificate), `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` for the frontend build. These public client settings are not database credentials; never use a Supabase secret/service-role key in the browser or mobile build. Redeploy after setting or changing them. Check `/api/health` and expect `{ "ok": true, "storage": "postgres" }`.
+
+Build the Android APK from the **Actions → Build and download app** workflow. Add repository Actions variables `WARDROBE_API_URL` (the deployed Vercel origin, no trailing slash), `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`; run the workflow again and install its APK artifact to sync with the web account. These are public client settings; do not add `DATABASE_URL`, the CA certificate, or a Supabase secret key to GitHub Actions variables used by the APK build.
 
 Without `DATABASE_URL`, the API uses temporary in-memory storage and is not persistent across Vercel function instances. Do not use that mode for a production wardrobe.
 
 For local PostgreSQL, use its connection string in `DATABASE_URL` and set `PGSSLMODE=disable`. Without `DATABASE_URL`, the API uses temporary in-memory storage. API tests do not require a live Supabase project.
 
-The current API stores one shared wardrobe in a JSONB row. It is suitable for a private single-wardrobe deployment, not multiple users: add user authentication and per-user authorization/RLS before exposing it as a multi-user service. Keep the Supabase database password in the API host's server-side secret settings.
+Keep the Supabase database password in the API host's server-side secret settings. Supabase Auth email confirmation and redirect URLs should be configured for the deployed Vercel domain before account signup.
 
 ## Verify
 

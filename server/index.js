@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs'
 import { Pool } from 'pg'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { createClient } from '@supabase/supabase-js'
 import { createMemoryStore, createPostgresStore } from './stateStore.js'
 
-export function createApp(store) {
+export function createApp(store, { authenticate = createAuthMiddleware() } = {}) {
   const app = express()
   app.use(express.json({ limit: '8mb' }))
   app.get('/api/health', async (_request, response) => {
@@ -18,8 +19,9 @@ export function createApp(store) {
       response.status(503).json({ ok: false, error: 'Storage unavailable.' })
     }
   })
+  app.use('/api/state', authenticate)
   app.get('/api/state', async (_request, response) => {
-    response.json(await store.get())
+    response.json(await store.get(response.locals.userId))
   })
   app.put('/api/state', async (request, response) => {
     const value = request.body
@@ -29,9 +31,45 @@ export function createApp(store) {
     if (value.items.length > 500 || Object.keys(value.looks).length > 500) {
       return response.status(413).json({ error: 'Wardrobe state exceeds the supported size.' })
     }
-    response.json(await store.set(value))
+    response.json(await store.set(response.locals.userId, value))
   })
   return app
+}
+
+export function createAuthMiddleware({
+  verifyToken = verifySupabaseToken,
+  isConfigured = () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY),
+} = {}) {
+  return async (request, response, next) => {
+    if (!isConfigured()) {
+      return response.status(503).json({ error: 'Authentication is not configured.' })
+    }
+
+    const authorization = request.get('authorization') ?? ''
+    const match = /^Bearer\s+(.+)$/i.exec(authorization)
+    if (!match) return response.status(401).json({ error: 'Sign in is required.' })
+
+    try {
+      const claims = await verifyToken(match[1])
+      if (typeof claims.sub !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claims.sub)) {
+        return response.status(401).json({ error: 'Invalid access token.' })
+      }
+      response.locals.userId = claims.sub
+      return next()
+    } catch {
+      return response.status(401).json({ error: 'Invalid or expired access token.' })
+    }
+  }
+}
+
+let tokenVerifier
+async function verifySupabaseToken(token) {
+  tokenVerifier ??= createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
+  })
+  const { data, error } = await tokenVerifier.auth.getUser(token)
+  if (error || !data.user) throw error ?? new Error('Supabase did not return an authenticated user.')
+  return { sub: data.user.id }
 }
 
 export function createConfiguredStore({ max = 5 } = {}) {

@@ -5,6 +5,6 @@ import '@ionic/vue/css/normalize.css'
 import '@ionic/vue/css/structure.css'
 import '@ionic/vue/css/typography.css'
 import './wardrobe.css'
-import App from './App.vue'
+import AuthGate from './AuthGate.vue'
 
-createApp(App).use(IonicVue).mount('#app')
+createApp(AuthGate).use(IonicVue).mount('#app')

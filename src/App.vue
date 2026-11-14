@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { IonApp, IonIcon } from '@ionic/vue'
-import { addOutline, arrowBackOutline, arrowForwardOutline, calendarClearOutline, checkmarkCircle, closeOutline, colorPaletteOutline, helpCircleOutline, imageOutline, shirtOutline, sparklesOutline, settingsOutline, sunnyOutline, trashOutline, waterOutline } from 'ionicons/icons'
+import { addOutline, arrowBackOutline, arrowForwardOutline, calendarClearOutline, checkmarkCircle, closeOutline, colorPaletteOutline, helpCircleOutline, imageOutline, logOutOutline, shirtOutline, sparklesOutline, settingsOutline, sunnyOutline, trashOutline, waterOutline } from 'ionicons/icons'
 import { coordinatePalette } from './lib/palette.js'
 import { approachForDate } from './lib/dailyApproach.js'
 import { sortClosetItems } from './lib/closet.js'
@@ -11,6 +11,7 @@ import { suggestOutfits } from './lib/styling.js'
 import { getWeatherBasedSuggestions } from './lib/weatherSuggestions.js'
 import { buildWardrobeReportCsv, getWardrobeAnalytics } from './lib/wardrobeAnalytics.js'
 import { loadWardrobe, saveWardrobe } from './lib/storage.js'
+import { supabase } from './lib/supabase.js'
 import { getWeather } from './lib/weather.js'
 import { removeFlatBackground } from './lib/backgroundRemoval.js'
 
@@ -489,6 +490,10 @@ onMounted(async () => {
 })
 
 function changeMonth(amount) { month.value = new Date(month.value.getFullYear(), month.value.getMonth() + amount, 1) }
+async function signOut() {
+  const { error } = await supabase.auth.signOut()
+  if (error) status.value = 'Sign out failed'
+}
 function openLook(date = selected.value) {
   selected.value = date
   const look = state.looks[date]
@@ -585,7 +590,7 @@ function visitTourFeature() {
         <div class="sidebar-bottom"><div class="mini-weather"><IonIcon :icon="weather?.precipitation > 0 ? waterOutline : sunnyOutline" /><div><strong>{{ weather ? `${weather.description} in ${weather.city}` : 'Local weather' }}</strong><span>{{ weather ? `${Math.round(weather.temperature)}°C · ${weather.precipitation} mm rain` : weatherError || 'Set your city in preferences' }}</span></div></div><button class="profile-button" @click="modal = 'settings'"><span class="avatar">{{ (state.settings.profileName || 'A').slice(0, 1).toUpperCase() }}</span><span><strong>{{ state.settings.profileName || 'Your wardrobe' }}</strong><small>{{ state.settings.profileStyle }} · {{ state.settings.stylePreference || 'Personal style' }}</small></span></button></div>
       </aside>
       <main class="main-content">
-        <header class="topbar"><div class="breadcrumb">My space <span>/</span> <strong>{{ page }}</strong></div><div class="top-actions"><span v-if="weather" class="weather-summary">{{ weather.city }} · {{ Math.round(weather.temperature) }}° · {{ weather.description }}</span><span class="save-indicator"><i></i>{{ status }}</span><button class="icon-button" aria-label="Walkthrough" title="Walkthrough" @click="openTour()"><IonIcon :icon="helpCircleOutline" /></button><button class="icon-button" aria-label="Calendar settings" @click="modal = 'settings'"><IonIcon :icon="settingsOutline" /></button></div></header>
+        <header class="topbar"><div class="breadcrumb">My space <span>/</span> <strong>{{ page }}</strong></div><div class="top-actions"><span v-if="weather" class="weather-summary">{{ weather.city }} · {{ Math.round(weather.temperature) }}° · {{ weather.description }}</span><span class="save-indicator"><i></i>{{ status }}</span><button class="icon-button" aria-label="Walkthrough" title="Walkthrough" @click="openTour()"><IonIcon :icon="helpCircleOutline" /></button><button class="icon-button" aria-label="Calendar settings" @click="modal = 'settings'"><IonIcon :icon="settingsOutline" /></button><button class="icon-button" aria-label="Sign out" title="Sign out" @click="signOut"><IonIcon :icon="logOutOutline" /></button></div></header>
 
         <section v-if="page === 'Calendar'" class="page-wrap">
           <div class="page-heading"><div><p class="eyebrow">A little more intention, every day</p><h1>Outfit calendar</h1><p class="heading-note">Plan a week of getting dressed like yourself.</p></div><button class="primary-button" @click="openLook()"><IonIcon :icon="addOutline" />Plan an outfit</button></div>

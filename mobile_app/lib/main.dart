@@ -2,20 +2,33 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'wardrobe_models.dart';
 import 'wardrobe_store.dart';
 import 'carousel_3d.dart';
+import 'auth_gate.dart';
 
 const _ink = Color(0xFF28362E);
 const _muted = Color(0xFF818980);
 const _paper = Color(0xFFF4F5F0);
 const _fern = Color(0xFF58735D);
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const _supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
-void main() => runApp(const ThreadWardrobeApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final authConfigured = _supabaseUrl.isNotEmpty && _supabasePublishableKey.isNotEmpty;
+  if (authConfigured) {
+    await Supabase.initialize(url: _supabaseUrl, anonKey: _supabasePublishableKey);
+  }
+  runApp(ThreadWardrobeApp(authConfigured: authConfigured));
+}
 
 class ThreadWardrobeApp extends StatelessWidget {
-  const ThreadWardrobeApp({super.key});
+  const ThreadWardrobeApp({required this.authConfigured, super.key});
+
+  final bool authConfigured;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -40,7 +53,16 @@ class ThreadWardrobeApp extends StatelessWidget {
             margin: EdgeInsets.zero,
           ),
         ),
-        home: const WardrobeHome(),
+        home: authConfigured
+            ? const SupabaseAuthGate(child: WardrobeHome())
+            : const Scaffold(
+                body: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Supabase sign-in is not configured for this build. Please install the configured app build.'),
+                  ),
+                ),
+              ),
       );
 }
 
@@ -366,6 +388,14 @@ class _WardrobeHomeState extends State<WardrobeHome> {
       const SizedBox(height: 18),
       SwitchListTile(value: _data.settings['showLookNames'] as bool? ?? true, title: const Text('Show look names'), onChanged: (value) async { _data.settings['showLookNames'] = value; await _persist(); if (context.mounted) Navigator.pop(context); }),
       ListTile(title: const Text('Week begins on'), trailing: SegmentedButton<int>(segments: const [ButtonSegment(value: 0, label: Text('Sun')), ButtonSegment(value: 1, label: Text('Mon'))], selected: {_data.settings['weekStarts'] as int? ?? 0}, onSelectionChanged: (value) async { _data.settings['weekStarts'] = value.first; await _persist(); if (context.mounted) Navigator.pop(context); })),
+      ListTile(
+        leading: const Icon(Icons.logout_rounded),
+        title: const Text('Sign out'),
+        onTap: () async {
+          Navigator.pop(context);
+          await Supabase.instance.client.auth.signOut();
+        },
+      ),
     ]))));
   }
 
