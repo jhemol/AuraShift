@@ -22,13 +22,13 @@ The frontend is available at `http://localhost:5173`; the API listens at `http:/
 The browser and mobile apps connect to the Express API; the database URL stays on the server and must never be added to frontend variables or committed.
 
 1. In Supabase, open **Project Settings → Database → Connect** and copy a pooler connection string. Use the **Session pooler** for the long-running local API; for Vercel's serverless API, use the **Transaction pooler**. Both avoid requiring an IPv6-only direct connection.
-2. For local development, copy `.env.example` to `.env` and set `DATABASE_URL` to the pooler URL. URL-encode special characters in the database password.
-3. Keep `PGSSLMODE=require` so the API verifies the TLS certificate. Never disable certificate verification for a hosted database.
+2. For local development, copy `.env.example` to `.env` and set `DATABASE_URL` to the pooler URL. Use the exact host and username shown by Supabase, and URL-encode special characters in the database password.
+3. Keep `PGSSLMODE=require` so the API verifies the TLS certificate. Download the database CA certificate from **Project Settings → Database → SSL Configuration**, save it as `.supabase/prod-ca-2021.crt`, and keep `PGSSLROOTCERT=.supabase/prod-ca-2021.crt` in `.env`. Never disable certificate verification for a hosted database.
 4. In Supabase **SQL Editor**, run `server/schema.sql` to create the `wardrobe_state` table, or let the API create it on startup. Start the app with `npm run dev:all`; the Vite `/api` proxy forwards requests to the database-backed API. Check `http://localhost:5174/api/health` for `{ "ok": true, "storage": "postgres" }` to confirm the API can reach Supabase.
 
 ### Deploy to Vercel
 
-The repository includes Vercel configuration for the Vite site and a serverless `/api` function. Import the GitHub repository into Vercel; it builds with `npm run build` and serves the `dist` output. In the Vercel project's **Settings → Environment Variables**, set `DATABASE_URL` to the Supabase **Transaction pooler** connection string and `PGSSLMODE` to `require` for Production (and Preview if needed). These are server-side variables; do not prefix them with `VITE_`. Redeploy after setting or changing them. Check `https://<your-deployment>/api/health` and expect `{ "ok": true, "storage": "postgres" }`.
+The repository includes Vercel configuration for the Vite site and a serverless `/api` function. Import the GitHub repository into Vercel; it builds with `npm run build` and serves the `dist` output. In the Vercel project's **Settings → Environment Variables**, set `DATABASE_URL` to the Supabase **Transaction pooler** connection string, `PGSSLMODE` to `require`, and `PGSSLROOTCERT` to the contents of the downloaded CA certificate for Production (and Preview if needed). These are server-side variables; do not prefix them with `VITE_`. Redeploy after setting or changing them. Check `https://<your-deployment>/api/health` and expect `{ "ok": true, "storage": "postgres" }`.
 
 Without `DATABASE_URL`, the API uses temporary in-memory storage and is not persistent across Vercel function instances. Do not use that mode for a production wardrobe.
 

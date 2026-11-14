@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createApp } from '../server/index.js'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createApp, createDatabaseSslConfig } from '../server/index.js'
 import { createMemoryStore } from '../server/stateStore.js'
 
 async function withServer(run, store = createMemoryStore()) {
@@ -49,4 +52,26 @@ test('health endpoint reports unavailable database storage', async () => {
     storage: 'postgres',
     async check() { throw new Error('connection refused') },
   })
+})
+
+test('database SSL verifies certificates and accepts a trusted CA file or PEM', () => {
+  const certificate = '-----BEGIN CERTIFICATE-----\ntrusted-ca\n-----END CERTIFICATE-----'
+  const directory = mkdtempSync(join(tmpdir(), 'wardrobe-ca-'))
+  const certificatePath = join(directory, 'ca.crt')
+  writeFileSync(certificatePath, certificate)
+
+  try {
+    assert.equal(createDatabaseSslConfig({ sslMode: 'disable' }), undefined)
+    assert.deepEqual(createDatabaseSslConfig({ sslMode: 'require', sslRootCert: '' }), { rejectUnauthorized: true })
+    assert.deepEqual(createDatabaseSslConfig({ sslMode: 'require', sslRootCert: certificate }), {
+      rejectUnauthorized: true,
+      ca: certificate,
+    })
+    assert.deepEqual(createDatabaseSslConfig({ sslMode: 'require', sslRootCert: certificatePath }), {
+      rejectUnauthorized: true,
+      ca: certificate,
+    })
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

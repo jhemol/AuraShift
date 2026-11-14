@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
+import { readFileSync } from 'node:fs'
 import { Pool } from 'pg'
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createMemoryStore, createPostgresStore } from './stateStore.js'
 
@@ -36,13 +38,25 @@ export function createConfiguredStore({ max = 5 } = {}) {
   const pool = process.env.DATABASE_URL
     ? new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined,
+      ssl: createDatabaseSslConfig(),
       max,
       connectionTimeoutMillis: 10_000,
       idleTimeoutMillis: 30_000,
     })
     : null
   return { pool, store: pool ? createPostgresStore(pool) : createMemoryStore() }
+}
+
+export function createDatabaseSslConfig({ sslMode = process.env.PGSSLMODE, sslRootCert = process.env.PGSSLROOTCERT } = {}) {
+  if (sslMode !== 'require') return undefined
+
+  const ca = sslRootCert?.includes('-----BEGIN CERTIFICATE-----')
+    ? sslRootCert
+    : sslRootCert
+      ? readFileSync(resolve(sslRootCert), 'utf8')
+      : undefined
+
+  return { rejectUnauthorized: true, ...(ca ? { ca } : {}) }
 }
 
 async function start() {
