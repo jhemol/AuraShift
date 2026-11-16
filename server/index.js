@@ -98,8 +98,25 @@ export function createDatabaseSslConfig({ sslMode = process.env.PGSSLMODE, sslRo
 }
 
 async function start() {
-  const { pool, store } = createConfiguredStore()
-  if (pool) await store.initialize()
+  let { pool, store } = createConfiguredStore()
+  if (pool) {
+    try {
+      await store.initialize()
+    } catch (error) {
+      console.warn('PostgreSQL init failed; falling back to the in-memory store.', error.message)
+      if (pool) {
+        try {
+          await pool.end()
+        } catch {
+          // ignore cleanup errors while falling back to a safe local store
+        }
+      }
+      const fallback = createMemoryStore()
+      pool = null
+      store = fallback
+    }
+  }
+
   const port = Number(process.env.API_PORT || 5174)
   const server = createApp(store).listen(port, () => {
     console.log(`Wardrobe API listening on http://localhost:${port}${pool ? ' (PostgreSQL)' : ' (memory store)'}`)
