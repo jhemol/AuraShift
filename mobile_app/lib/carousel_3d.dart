@@ -68,7 +68,7 @@ class _Carousel3DState extends State<Carousel3D> {
   }
 
   Widget _buildItem(int index, int count) {
-    final double offset = index - _currentIndex;
+    final double offset = (index - _currentIndex).toDouble();
     final double angle = offset * 0.35;
     final double scale = math.max(0.7, 1 - offset.abs() * 0.18);
     final double opacity = math.max(0.3, 1 - offset.abs() * 0.45);

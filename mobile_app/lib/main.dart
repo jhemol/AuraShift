@@ -238,7 +238,27 @@ class _WardrobeHomeState extends State<WardrobeHome> {
               IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)), icon: const Icon(Icons.chevron_left_rounded)),
               IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
             ]),
-            Row(children: ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day) => Expanded(child: Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(day, style: const TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600))))).toList()),
+            Row(
+              children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                  .map(
+                    (day) => Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              color: _muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -406,7 +426,39 @@ class _WardrobeHomeState extends State<WardrobeHome> {
 
   Widget _colorStory(List<ClothingItem> pieces) {
     final score = pieces.length < 2 ? 0 : (100 - pieces.map((piece) => _colorDistance(piece.colorHex, pieces.first.colorHex)).reduce((a, b) => a + b) ~/ pieces.length).clamp(0, 100);
-    return Row(children: [const Expanded(child: Text('Color story', style: TextStyle(fontWeight: FontWeight.w700))), Text('$score% together', style: const TextStyle(color: _fern, fontSize: 12, fontWeight: FontWeight.w700)), const SizedBox(width: 6), ...pieces.take(4).map((item) => Padding(padding: const EdgeInsets.only(left: 4), child: Container(width: 14, height: 14, decoration: BoxDecoration(color: _colorFromHex(item.colorHex), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)) ))]);
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Color story',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        Text(
+          '$score% together',
+          style: const TextStyle(
+            color: _fern,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 6),
+        ...pieces.take(4).map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: _colorFromHex(item.colorHex),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ),
+      ],
+    );
   }
 
   int _colorDistance(String left, String right) {
@@ -534,7 +586,6 @@ class _OutfitComposerState extends State<OutfitComposer> {
         itemWidth: 90,
       ),
     );
-  }
   }
 
   Widget _clothingImage(ClothingItem item) {
