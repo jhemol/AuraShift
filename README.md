@@ -65,11 +65,12 @@ Install the Flutter SDK to run it locally:
 cd mobile_app
 flutter create --org com.thread --project-name thread_wardrobe --platforms android,ios .
 flutter pub get
+dart run flutter_launcher_icons
 flutter test
 flutter run
 ```
 
-GitHub Actions generates a temporary Android Flutter project, runs `flutter test`, builds a native debug APK, and publishes it as the `thread-wardrobe-android-debug` artifact. The separate Vue app remains available as the web version. iOS builds require macOS and Xcode.
+The Android launcher icon uses the AuraShift mark in `public/aura-mark.png`; run `dart run flutter_launcher_icons` after `flutter pub get` to generate it. GitHub Actions generates a temporary Android Flutter project, runs `flutter test`, builds a native debug APK, and publishes it as the `thread-wardrobe-android-debug` artifact. The separate Vue app remains available as the web version. iOS builds require macOS and Xcode.
 
 For locally generated iOS projects, add `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` entries to `ios/Runner/Info.plist` before using photo capture and gallery import.
 
