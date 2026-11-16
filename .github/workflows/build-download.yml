@@ -91,8 +91,14 @@ jobs:
       - name: Install Android NDK
         shell: bash
         run: |
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager" ]; then
+            echo "::error::Android SDK manager was not found at $sdkmanager."
+            exit 1
+          fi
           for attempt in 1 2 3; do
-            if sdkmanager --install "ndk;28.2.13676358"; then
+            if "$sdkmanager" --install "ndk;28.2.13676358"; then
               exit 0
             fi
             if [ "$attempt" -lt 3 ]; then
