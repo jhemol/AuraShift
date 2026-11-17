@@ -30,6 +30,12 @@ class ClothingItem {
   final int laundryDurationMinutes;
 
   ClothingItem copyWith({
+    String? name,
+    String? category,
+    String? color,
+    String? colorHex,
+    String? image,
+    String? season,
     String? status,
     String? brand,
     List<String>? tags,
@@ -39,12 +45,12 @@ class ClothingItem {
   }) =>
       ClothingItem(
         id: id,
-        name: name,
-        category: category,
-        color: color,
-        colorHex: colorHex,
-        image: image,
-        season: season,
+        name: name ?? this.name,
+        category: category ?? this.category,
+        color: color ?? this.color,
+        colorHex: colorHex ?? this.colorHex,
+        image: image ?? this.image,
+        season: season ?? this.season,
         brand: brand ?? this.brand,
         tags: tags ?? this.tags,
         status: status ?? this.status,
@@ -118,11 +124,14 @@ class WardrobeData {
           'weekStarts': 0,
           'showLookNames': true,
           'accent': 'forest',
+          'theme': 'light',
           'city': '',
           'profileName': '',
+          'profileStyle': 'All styles',
           'stylePreference': 'Everyday',
           'colorBlindMode': 'None',
           'auraIntensity': 0.65,
+          'remindersEnabled': false,
           'timerMinutes': 20,
           ...?settings,
         };

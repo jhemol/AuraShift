@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'wardrobe_models.dart';
@@ -47,27 +48,28 @@ class _Carousel3DState extends State<Carousel3D> {
     final count = widget.items.length;
     return SizedBox(
       height: widget.height,
-      child: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          if (details.primaryVelocity == null) return;
-          if (details.primaryVelocity! < 0) {
-            _onSwipe(1);
-          } else if (details.primaryVelocity! > 0) {
-            _onSwipe(-1);
-          }
-        },
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            for (int i = 0; i < count; i++)
-              _buildItem(i, count),
-          ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => GestureDetector(
+          onHorizontalDragEnd: (details) {
+            if (details.primaryVelocity == null || count < 2) return;
+            if (details.primaryVelocity! < 0) {
+              _onSwipe(1);
+            } else if (details.primaryVelocity! > 0) {
+              _onSwipe(-1);
+            }
+          },
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              for (int i = 0; i < count; i++) _buildItem(i, count, constraints.maxWidth),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildItem(int index, int count) {
+  Widget _buildItem(int index, int count, double width) {
     final double offset = (index - _currentIndex).toDouble();
     final double angle = offset * 0.35;
     final double scale = math.max(0.7, 1 - offset.abs() * 0.18);
@@ -76,7 +78,7 @@ class _Carousel3DState extends State<Carousel3D> {
       ignoring: index != _currentIndex,
       child: AnimatedPositioned(
         duration: const Duration(milliseconds: 300),
-        left: MediaQuery.of(context).size.width / 2 - widget.itemWidth / 2 + offset * widget.itemWidth * 0.7,
+        left: width / 2 - widget.itemWidth / 2 + offset * widget.itemWidth * 0.7,
         top: 0,
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 300),
@@ -84,7 +86,8 @@ class _Carousel3DState extends State<Carousel3D> {
           child: Transform(
             transform: Matrix4.identity()
               ..setEntry(3, 2, widget.perspective)
-              ..rotateY(angle),
+              ..rotateY(angle)
+              ..scale(scale),
             alignment: Alignment.center,
             child: Container(
               width: widget.itemWidth,
@@ -101,14 +104,31 @@ class _Carousel3DState extends State<Carousel3D> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(18),
-                child: widget.items[index].image.isNotEmpty
-                    ? Image.network(widget.items[index].image, fit: BoxFit.cover)
-                    : Container(color: Color(int.parse(widget.items[index].colorHex.replaceFirst('#', '0xff')))),
+                child: _image(widget.items[index]),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _image(ClothingItem item) {
+    final value = item.colorHex.replaceFirst('#', '');
+    final fallback = Container(
+      color: Color(int.tryParse(value.length == 6 ? 'FF$value' : value, radix: 16) ?? 0xFF59745C),
+      child: const Center(child: Icon(Icons.checkroom_rounded, color: Colors.white)),
+    );
+    if (item.image.isEmpty) return fallback;
+    if (item.image.startsWith('data:image/')) {
+      final separator = item.image.indexOf(',');
+      if (separator < 0) return fallback;
+      try {
+        return Image.memory(base64Decode(item.image.substring(separator + 1)), fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback);
+      } on FormatException {
+        return fallback;
+      }
+    }
+    return Image.network(item.image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback);
   }
 }

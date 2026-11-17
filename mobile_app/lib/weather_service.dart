@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class WeatherSnapshot {
-  const WeatherSnapshot({required this.temperature, required this.precipitation, required this.description});
+  const WeatherSnapshot({required this.city, required this.temperature, required this.precipitation, required this.description});
 
+  final String city;
   final double temperature;
   final double precipitation;
   final String description;
@@ -29,6 +30,7 @@ class WeatherService {
       throw const FormatException('No matching city was found.');
     }
     final location = locations.first as Map<String, dynamic>;
+    final cityName = location['name'];
     final latitude = location['latitude'], longitude = location['longitude'];
     if (latitude is! num || longitude is! num) throw const FormatException('The location response was incomplete.');
     final forecastUri = Uri.https('api.open-meteo.com', '/v1/forecast', {
@@ -49,6 +51,7 @@ class WeatherService {
       throw const FormatException('The weather response was incomplete.');
     }
     return WeatherSnapshot(
+      city: cityName is String && cityName.isNotEmpty ? cityName : city,
       temperature: (current['temperature_2m'] as num).toDouble(),
       precipitation: (current['precipitation'] as num).toDouble(),
       description: _description((current['weather_code'] as num).toInt()),

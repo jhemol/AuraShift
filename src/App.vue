@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { IonApp, IonIcon } from '@ionic/vue'
-import { addOutline, arrowBackOutline, arrowForwardOutline, calendarClearOutline, checkmarkCircle, closeOutline, colorPaletteOutline, helpCircleOutline, imageOutline, logOutOutline, shirtOutline, sparklesOutline, settingsOutline, sunnyOutline, trashOutline, waterOutline } from 'ionicons/icons'
+import { addOutline, arrowBackOutline, arrowForwardOutline, calendarClearOutline, checkmarkCircle, closeOutline, colorPaletteOutline, helpCircleOutline, imageOutline, logOutOutline, shirtOutline, sparklesOutline, settingsOutline, sunnyOutline, syncOutline, trashOutline, waterOutline } from 'ionicons/icons'
 import { coordinatePalette } from './lib/palette.js'
 import { approachForDate } from './lib/dailyApproach.js'
 import { sortClosetItems } from './lib/closet.js'
@@ -10,7 +10,7 @@ import { nextGarmentStatus, normalizeGarmentStatus } from './lib/garmentCare.js'
 import { suggestOutfits } from './lib/styling.js'
 import { getWeatherBasedSuggestions } from './lib/weatherSuggestions.js'
 import { buildWardrobeReportCsv, getWardrobeAnalytics } from './lib/wardrobeAnalytics.js'
-import { loadWardrobe, saveWardrobe } from './lib/storage.js'
+import { loadSharedWardrobe, loadWardrobe, saveWardrobe } from './lib/storage.js'
 import { supabase } from './lib/supabase.js'
 import { getWeather } from './lib/weather.js'
 import { removeFlatBackground } from './lib/backgroundRemoval.js'
@@ -289,6 +289,9 @@ const selected = ref(todayKey)
 const page = ref('Calendar')
 const modal = ref('')
 const status = ref('Saved locally')
+const syncError = ref('')
+const syncingFromMobile = ref(false)
+const applyingSharedData = ref(false)
 const tourOpen = ref(false)
 const tourIndex = ref(0)
 const lookForm = reactive({ title: '', note: '', event: '', eventTime: '', items: [] })
@@ -451,19 +454,28 @@ const weatherSuggestion = computed(() => getWeatherBasedSuggestions(state.items,
 const weatherSuggestedItems = computed(() => weatherSuggestion.value.items)
 
 watch(state, () => {
-  if (!ready.value) return
+  if (!ready.value || applyingSharedData.value) return
   status.value = 'Saving'
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(async () => { await saveWardrobe(state); status.value = 'Saved locally' }, 350)
+  saveTimer = setTimeout(async () => {
+    try {
+      const result = await saveWardrobe(state)
+      status.value = result.synced ? 'Synced' : result.localSaved ? 'Saved locally · Sync pending' : 'Sync failed'
+      syncError.value = result.error ?? ''
+    } catch (error) {
+      status.value = 'Sync failed'
+      syncError.value = error.message || 'The wardrobe could not be saved.'
+    }
+  }, 350)
 }, { deep: true })
 watch(() => state.settings.stylePreference, (preference) => {
   if (outfitStyles.includes(preference)) styleOccasion.value = preference
 })
 onMounted(async () => {
   const saved = await loadWardrobe()
-  if (saved?.items?.length) {
+  if (saved && Array.isArray(saved.items)) {
     const savedItemIds = new Set(saved.items.map((item) => item.id))
-    const needsCatalogUpdate = Number(saved.settings?.sampleCatalogVersion ?? 0) < 2
+    const needsCatalogUpdate = saved.items.length > 0 && Number(saved.settings?.sampleCatalogVersion ?? 0) < 2
     const migratedItems = needsCatalogUpdate ? additionalStarterItems.filter((item) => !savedItemIds.has(item.id)) : []
     state.items = [...saved.items.map((item) => {
       const sample = starterItems.find((starter) => starter.id === item.id)
@@ -488,6 +500,42 @@ onMounted(async () => {
   notificationsEnabled.value = 'Notification' in window && Notification.permission === 'granted'
   if (localStorage.getItem('thread-walkthrough-complete') !== 'yes') tourOpen.value = true
 })
+
+async function syncFromMobile() {
+  if (syncingFromMobile.value || status.value === 'Saving') return
+  syncingFromMobile.value = true
+  try {
+    const result = await loadSharedWardrobe()
+    if (!result.data) {
+      status.value = 'Sync failed'
+      syncError.value = result.error || 'Shared wardrobe data is unavailable.'
+      return
+    }
+    applyingSharedData.value = true
+    state.items = result.data.items.map((item) => ({
+      status: 'Clean',
+      brand: '',
+      tags: [],
+      laundryDurationMinutes: 45,
+      ...item,
+      status: normalizeGarmentStatus(item.status),
+    }))
+    state.looks = result.data.looks ?? {}
+    state.settings = { ...state.settings, ...result.data.settings }
+    delete state.settings.timerMinutes
+    await nextTick()
+    applyingSharedData.value = false
+    status.value = result.error ? 'Synced · cache issue' : 'Synced with mobile'
+    syncError.value = result.error ?? ''
+    refreshWeather()
+  } catch (error) {
+    applyingSharedData.value = false
+    status.value = 'Sync failed'
+    syncError.value = error.message || 'The shared wardrobe could not be loaded.'
+  } finally {
+    syncingFromMobile.value = false
+  }
+}
 
 function changeMonth(amount) { month.value = new Date(month.value.getFullYear(), month.value.getMonth() + amount, 1) }
 async function signOut() {
@@ -590,7 +638,7 @@ function visitTourFeature() {
         <div class="sidebar-bottom"><div class="mini-weather"><IonIcon :icon="weather?.precipitation > 0 ? waterOutline : sunnyOutline" /><div><strong>{{ weather ? `${weather.description} in ${weather.city}` : 'Local weather' }}</strong><span>{{ weather ? `${Math.round(weather.temperature)}°C · ${weather.precipitation} mm rain` : weatherError || 'Set your city in preferences' }}</span></div></div><button class="profile-button" @click="modal = 'settings'"><span class="avatar">{{ (state.settings.profileName || 'A').slice(0, 1).toUpperCase() }}</span><span><strong>{{ state.settings.profileName || 'Your wardrobe' }}</strong><small>{{ state.settings.profileStyle }} · {{ state.settings.stylePreference || 'Personal style' }}</small></span></button></div>
       </aside>
       <main class="main-content">
-        <header class="topbar"><div class="breadcrumb">My space <span>/</span> <strong>{{ page }}</strong></div><div class="top-actions"><span v-if="weather" class="weather-summary">{{ weather.city }} · {{ Math.round(weather.temperature) }}° · {{ weather.description }}</span><span class="save-indicator"><i></i>{{ status }}</span><button class="icon-button" aria-label="Walkthrough" title="Walkthrough" @click="openTour()"><IonIcon :icon="helpCircleOutline" /></button><button class="icon-button" aria-label="Calendar settings" @click="modal = 'settings'"><IonIcon :icon="settingsOutline" /></button><button class="icon-button" aria-label="Sign out" title="Sign out" @click="signOut"><IonIcon :icon="logOutOutline" /></button></div></header>
+        <header class="topbar"><div class="breadcrumb">My space <span>/</span> <strong>{{ page }}</strong></div><div class="top-actions"><span v-if="weather" class="weather-summary">{{ weather.city }} · {{ Math.round(weather.temperature) }}° · {{ weather.description }}</span><span class="save-indicator" :title="syncError"><i></i>{{ status }}</span><button class="icon-button" aria-label="Sync with mobile" title="Pull latest wardrobe from mobile" :disabled="syncingFromMobile" @click="syncFromMobile"><IonIcon :icon="syncOutline" /></button><button class="icon-button" aria-label="Walkthrough" title="Walkthrough" @click="openTour()"><IonIcon :icon="helpCircleOutline" /></button><button class="icon-button" aria-label="Calendar settings" @click="modal = 'settings'"><IonIcon :icon="settingsOutline" /></button><button class="icon-button" aria-label="Sign out" title="Sign out" @click="signOut"><IonIcon :icon="logOutOutline" /></button></div></header>
 
         <section v-if="page === 'Calendar'" class="page-wrap">
           <div class="page-heading"><div><p class="eyebrow">A little more intention, every day</p><h1>Outfit calendar</h1><p class="heading-note">Plan a week of getting dressed like yourself.</p></div><button class="primary-button" @click="openLook()"><IonIcon :icon="addOutline" />Plan an outfit</button></div>
