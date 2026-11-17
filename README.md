@@ -53,11 +53,11 @@ Tests cover color palette scoring and API read, write, and input validation. API
 
 ## GitHub Downloads
 
-The workflow in `.github/workflows/build-download.yml` runs tests and builds the web app and an Android debug APK on pushes to `main`, pull requests, or manual runs. Set the repository Actions variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` so the web build includes the Supabase sign-in configuration. In GitHub, open the repository's **Actions** tab, select **Build and download app**, open a successful run, and download either `thread-wardrobe-android-debug` (APK) or `thread-wardrobe-web` (web build) from **Artifacts**. Artifacts are retained for 14 days. The APK is a debug build for testing and is not a signed Play Store release.
+The workflow in `.github/workflows/build-download.yml` runs tests and builds the web app and an Android debug APK on pushes to `main`, pull requests, or manual runs. Set the repository Actions variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` so the web build includes the Supabase sign-in configuration. In GitHub, open the repository's **Actions** tab, select **Build and download app**, open a successful run, and download either `AuraShift` (APK) or `thread-wardrobe-web` (web build) from **Artifacts**. Artifacts are retained for 14 days. The APK is a debug build for testing and is not a signed Play Store release.
 
 ## Mobile App
 
-The installed mobile app is a separate native Flutter application in `mobile_app/`; it does not render the Vue site in a WebView. It includes the outfit calendar with event details, photo-based closet, weather-aware outfit ideas, interactive 3D outfit preview, laundry state tracking, morning timer, reminders, color accessibility preferences, and chromatic styling. Data is stored on-device and can optionally sync with the Express/PostgreSQL API by building with `--dart-define=WARDROBE_API_URL=https://your-api-host`.
+The installed mobile app is a separate native Flutter application in `mobile_app/`; it does not render the Vue site in a WebView. It includes the outfit calendar with event details, photo-based closet with camera and gallery picking, weather-aware outfit ideas, interactive 3D outfit preview, laundry state tracking, morning timer, reminders, color accessibility preferences, and chromatic styling. Selected photos are compressed and stored with wardrobe state so they can sync between mobile and web. Data is stored on-device and can optionally sync with the Express/PostgreSQL API by building with `--dart-define=WARDROBE_API_URL=https://your-api-host`.
 
 Install the Flutter SDK to run it locally:
 
@@ -70,7 +70,7 @@ flutter test
 flutter run
 ```
 
-The Android launcher icon uses the AuraShift mark in `public/aura-mark.png`; run `dart run flutter_launcher_icons` after `flutter pub get` to generate it. GitHub Actions generates a temporary Android Flutter project, runs `flutter test`, builds a native debug APK, and publishes it as the `thread-wardrobe-android-debug` artifact. The separate Vue app remains available as the web version. iOS builds require macOS and Xcode.
+The Android launcher icon uses the AuraShift mark in `public/aura-mark.png`; run `dart run flutter_launcher_icons` after `flutter pub get` to generate it. Android's system photo picker grants access only to the selected gallery image; camera access is requested when the camera button is used. GitHub Actions generates a temporary Android Flutter project, sets the installed app name to AuraShift, runs `flutter test`, builds a native debug APK, and publishes it as the `AuraShift` artifact. For a locally generated Android project, set `android:label="AuraShift"` and add the `android.permission.CAMERA` permission in `android/app/src/main/AndroidManifest.xml`. The separate Vue app remains available as the web version. iOS builds require macOS and Xcode.
 
 For locally generated iOS projects, add `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` entries to `ios/Runner/Info.plist` before using photo capture and gallery import.
 

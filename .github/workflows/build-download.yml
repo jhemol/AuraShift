@@ -60,9 +60,10 @@ jobs:
           cp -R mobile_app/lib mobile_app_build/lib
           cp -R mobile_app/test mobile_app_build/test
 
-      - name: Configure Android notification desugaring
+      - name: Configure Android app and notification settings
         run: |
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
           gradle_file = Path("mobile_app_build/android/app/build.gradle.kts")
@@ -81,6 +82,30 @@ jobs:
                   raise SystemExit("Flutter Android Gradle insertion point was not found.")
               source = source.replace("\nflutter {", dependency_block + "\nflutter {", 1)
           gradle_file.write_text(source)
+
+          manifest_file = Path("mobile_app_build/android/app/src/main/AndroidManifest.xml")
+          manifest = manifest_file.read_text()
+          manifest, label_count = re.subn(
+              r'android:label="[^"]+"',
+              'android:label="AuraShift"',
+              manifest,
+              count=1,
+          )
+          if label_count != 1:
+              raise SystemExit("Flutter Android application label was not found.")
+          if "android.permission.CAMERA" not in manifest:
+              manifest, permission_count = re.subn(
+                  r'(?m)^([ \t]*)<application\b',
+                  lambda match: (
+                      f'{match.group(1)}<uses-permission android:name="android.permission.CAMERA" />\n'
+                      f'{match.group(1)}<application'
+                  ),
+                  manifest,
+                  count=1,
+              )
+              if permission_count != 1:
+                  raise SystemExit("Flutter Android application manifest was not found.")
+          manifest_file.write_text(manifest)
           PY
 
       - name: Install Flutter dependencies
@@ -130,7 +155,7 @@ jobs:
       - name: Upload Android APK
         uses: actions/upload-artifact@v5
         with:
-          name: thread-wardrobe-android-debug
+          name: AuraShift
           path: mobile_app_build/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14

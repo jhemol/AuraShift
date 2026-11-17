@@ -14,7 +14,7 @@ class WardrobeStore {
 
   Future<WardrobeData> load() async {
     final preferences = await SharedPreferences.getInstance();
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = _currentUserId();
     if (userId == null) return WardrobeData();
     final userStorageKey = '$_storageKey:$userId';
     final cached = preferences.getString(userStorageKey);
@@ -29,7 +29,7 @@ class WardrobeStore {
 
     if (apiBaseUrl.isNotEmpty) {
       try {
-        final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+        final accessToken = _currentAccessToken();
         if (accessToken == null) return local ?? WardrobeData();
         final response = await http.get(
           Uri.parse('$apiBaseUrl/api/state'),
@@ -54,8 +54,11 @@ class WardrobeStore {
   Future<void> save(WardrobeData data) async {
     final encoded = data.encode();
     final preferences = await SharedPreferences.getInstance();
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
+    final session = _currentSession();
+    if (session == null) {
+      await preferences.setString(_storageKey, encoded);
+      return;
+    }
     await preferences.setString('$_storageKey:${session.user.id}', encoded);
     if (apiBaseUrl.isEmpty) return;
 
@@ -72,6 +75,30 @@ class WardrobeStore {
           .timeout(const Duration(seconds: 5));
     } catch (_) {
       // Local persistence remains the source of truth while offline.
+    }
+  }
+
+  String? _currentUserId() {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Session? _currentSession() {
+    try {
+      return Supabase.instance.client.auth.currentSession;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _currentAccessToken() {
+    try {
+      return Supabase.instance.client.auth.currentSession?.accessToken;
+    } catch (_) {
+      return null;
     }
   }
 }

@@ -1,7 +1,11 @@
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'wardrobe_models.dart';
@@ -32,7 +36,7 @@ class ThreadWardrobeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'thread. wardrobe',
+        title: 'AuraShift',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
@@ -55,14 +59,7 @@ class ThreadWardrobeApp extends StatelessWidget {
         ),
         home: authConfigured
             ? const SupabaseAuthGate(child: WardrobeHome())
-            : const Scaffold(
-                body: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('Supabase sign-in is not configured for this build. Please install the configured app build.'),
-                  ),
-                ),
-              ),
+            : const WardrobeHome(),
       );
 }
 
@@ -168,7 +165,7 @@ class _WardrobeHomeState extends State<WardrobeHome> {
       extendBody: true,
       appBar: AppBar(
         titleSpacing: 22,
-        title: const Text('thread.', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: -.6)),
+        title: const Text('AuraShift', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: -.6)),
         actions: [
           if (!_loading) Padding(padding: const EdgeInsets.only(right: 12), child: Center(child: Text('${_data.items.length} pieces', style: const TextStyle(color: _muted, fontSize: 12)))),
           IconButton(onPressed: () => _showSettings(), icon: const Icon(Icons.tune_rounded), tooltip: 'Calendar settings'),
@@ -471,6 +468,19 @@ class _WardrobeHomeState extends State<WardrobeHome> {
   Widget _image(String url, {BoxFit fit = BoxFit.cover, String colorHex = '#E5E9E1'}) {
     final fallback = Container(color: _colorFromHex(colorHex), child: const Center(child: Icon(Icons.checkroom_rounded, color: Colors.white70, size: 31)));
     if (url.isEmpty) return fallback;
+    if (url.startsWith('data:image/')) {
+      final separator = url.indexOf(',');
+      if (separator < 0) return fallback;
+      try {
+        return Image.memory(
+          base64Decode(url.substring(separator + 1)),
+          fit: fit,
+          errorBuilder: (_, __, ___) => fallback,
+        );
+      } on FormatException {
+        return fallback;
+      }
+    }
     return Image.network(url, fit: fit, errorBuilder: (_, __, ___) => fallback, loadingBuilder: (context, child, progress) => progress == null ? child : fallback);
   }
 
@@ -604,12 +614,52 @@ class AddClothingSheet extends StatefulWidget {
 class _AddClothingSheetState extends State<AddClothingSheet> {
   final _name = TextEditingController();
   final _image = TextEditingController();
+  final _picker = ImagePicker();
+  String _photoData = '';
+  String? _photoError;
+  bool _isPickingPhoto = false;
   String _category = 'Top';
   String _color = 'sage';
   String _hex = '#789078';
   static const colors = {'sage': '#789078', 'cream': '#D9CDB8', 'denim': '#617C91', 'rose': '#C18484', 'navy': '#34475B', 'red': '#AC5B4C'};
   @override
   void dispose() { _name.dispose(); _image.dispose(); super.dispose(); }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    setState(() {
+      _isPickingPhoto = true;
+      _photoError = null;
+    });
+    try {
+      if (source == ImageSource.camera) {
+        final permission = await Permission.camera.request();
+        if (!mounted) return;
+        if (!permission.isGranted) {
+          setState(() => _photoError = permission.isPermanentlyDenied
+              ? 'Enable camera permission in your device settings to take a photo.'
+              : 'Camera permission is needed to take a photo.');
+          return;
+        }
+      }
+      final photo = await _picker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 65,
+      );
+      if (photo == null) return;
+      final bytes = await photo.readAsBytes();
+      if (bytes.isEmpty) throw Exception('The selected photo is empty.');
+      if (!mounted) return;
+      setState(() => _photoData = 'data:image/jpeg;base64,${base64Encode(bytes)}');
+    } on PlatformException catch (error) {
+      if (mounted) setState(() => _photoError = error.message ?? 'Could not open the selected photo.');
+    } on Exception {
+      if (mounted) setState(() => _photoError = 'Could not read the selected photo. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isPickingPhoto = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Container(height: MediaQuery.sizeOf(context).height * .78, padding: EdgeInsets.fromLTRB(20, 14, 20, MediaQuery.viewInsetsOf(context).bottom + 18), decoration: const BoxDecoration(color: _paper, borderRadius: BorderRadius.vertical(top: Radius.circular(28))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -619,9 +669,39 @@ class _AddClothingSheetState extends State<AddClothingSheet> {
       TextField(controller: _name, decoration: const InputDecoration(labelText: 'Piece name', hintText: 'e.g. Cropped denim jacket')),
       const SizedBox(height: 12), DropdownButtonFormField<String>(value: _category, decoration: const InputDecoration(labelText: 'Category'), items: ['Top', 'Bottom', 'Dress', 'Layer', 'Shoes', 'Accessory'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (value) => setState(() => _category = value ?? 'Top')),
       const SizedBox(height: 12), DropdownButtonFormField<String>(value: _color, decoration: const InputDecoration(labelText: 'Color'), items: colors.keys.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (value) => setState(() { _color = value ?? 'sage'; _hex = colors[_color]!; })),
-      const SizedBox(height: 12), TextField(controller: _image, decoration: const InputDecoration(labelText: 'Photo URL (optional)', hintText: 'https://…')),
+      const SizedBox(height: 12),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        OutlinedButton.icon(
+          onPressed: _isPickingPhoto ? null : () => _pickPhoto(ImageSource.camera),
+          icon: const Icon(Icons.camera_alt_outlined),
+          label: const Text('Camera'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _isPickingPhoto ? null : () => _pickPhoto(ImageSource.gallery),
+          icon: const Icon(Icons.photo_library_outlined),
+          label: const Text('Gallery'),
+        ),
+      ]),
+      if (_isPickingPhoto) const LinearProgressIndicator(),
+      if (_photoError != null) Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(_photoError!, style: const TextStyle(color: Colors.red)),
+      ),
+      if (_photoData.isNotEmpty) Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(
+            base64Decode(_photoData.substring(_photoData.indexOf(',') + 1)),
+            height: 140,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+      const SizedBox(height: 12), TextField(controller: _image, decoration: const InputDecoration(labelText: 'Or photo URL (optional)', hintText: 'https://…')),
     ])),
-    SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () { if (_name.text.trim().isEmpty) return; Navigator.pop(context, ClothingItem(id: 'item-${DateTime.now().microsecondsSinceEpoch}', name: _name.text.trim(), category: _category, color: _color, colorHex: _hex, image: _image.text.trim())); }, icon: const Icon(Icons.add_rounded), label: const Text('Add to closet'))),
+    SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () { if (_name.text.trim().isEmpty) return; Navigator.pop(context, ClothingItem(id: 'item-${DateTime.now().microsecondsSinceEpoch}', name: _name.text.trim(), category: _category, color: _color, colorHex: _hex, image: _photoData.isNotEmpty ? _photoData : _image.text.trim())); }, icon: const Icon(Icons.add_rounded), label: const Text('Add to closet'))),
   ]));
 }
 
