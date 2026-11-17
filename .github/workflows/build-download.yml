@@ -32,8 +32,8 @@ jobs:
 
       - name: Build web app
         env:
-          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
 
       - name: Upload web app
@@ -151,9 +151,9 @@ jobs:
 
       - name: Validate mobile sync configuration
         env:
-          WARDROBE_API_URL: ${{ vars.WARDROBE_API_URL }}
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          WARDROBE_API_URL: ${{ vars.WARDROBE_API_URL || secrets.WARDROBE_API_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY }}
         shell: bash
         run: |
           if [ -z "$(printf '%s' "$WARDROBE_API_URL" | tr -d '[:space:]')" ]; then
@@ -179,9 +179,9 @@ jobs:
 
       - name: Build native Android debug APK
         env:
-          WARDROBE_API_URL: ${{ vars.WARDROBE_API_URL }}
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          WARDROBE_API_URL: ${{ vars.WARDROBE_API_URL || secrets.WARDROBE_API_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: >-
           flutter build apk --debug
           --dart-define=WARDROBE_API_URL="$WARDROBE_API_URL"
