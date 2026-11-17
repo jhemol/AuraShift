@@ -7,7 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'wardrobe_models.dart';
 
 class WardrobeStore {
-  WardrobeStore({String? apiBaseUrl}) : apiBaseUrl = (apiBaseUrl ?? const String.fromEnvironment('WARDROBE_API_URL')).trim();
+  WardrobeStore({String? apiBaseUrl})
+      : apiBaseUrl = (apiBaseUrl ?? const String.fromEnvironment('WARDROBE_API_URL')).trim().replaceFirst(RegExp(r'/+$'), '');
 
   static const _storageKey = 'thread-wardrobe-native-v1';
   final String apiBaseUrl;
@@ -136,6 +137,10 @@ class WardrobeStore {
           )
           .timeout(const Duration(seconds: 5));
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        final location = response.headers['location'];
+        if (response.statusCode == 308 && location != null) {
+          return 'The wardrobe API redirected this request to $location. Use that canonical site URL for WARDROBE_API_URL, without a trailing slash, then rebuild the app.';
+        }
         return 'The wardrobe API could not save your data (HTTP ${response.statusCode}).';
       }
       return null;
