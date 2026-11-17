@@ -68,6 +68,14 @@ jobs:
 
           gradle_file = Path("mobile_app_build/android/app/build.gradle.kts")
           source = gradle_file.read_text()
+          source, compile_sdk_count = re.subn(
+              r'(?m)^(\s*)compileSdk\s*=.*$',
+              lambda match: f'{match.group(1)}compileSdk = 37',
+              source,
+              count=1,
+          )
+          if compile_sdk_count != 1:
+              raise SystemExit("Flutter Android compileSdk setting was not found.")
           if "isCoreLibraryDesugaringEnabled" not in source:
               if "compileOptions {" not in source:
                   raise SystemExit("Flutter Android Gradle compileOptions block was not found.")
@@ -116,7 +124,7 @@ jobs:
         run: dart run flutter_launcher_icons
         working-directory: mobile_app_build
 
-      - name: Install Android NDK
+      - name: Install Android SDK platform and NDK
         shell: bash
         run: |
           sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -126,11 +134,11 @@ jobs:
             exit 1
           fi
           for attempt in 1 2 3; do
-            if "$sdkmanager" --install "ndk;28.2.13676358"; then
+            if "$sdkmanager" --install "platforms;android-37" "ndk;28.2.13676358"; then
               exit 0
             fi
             if [ "$attempt" -lt 3 ]; then
-              echo "NDK installation attempt $attempt failed; retrying in 20 seconds."
+              echo "Android SDK/NDK installation attempt $attempt failed; retrying in 20 seconds."
               sleep 20
             fi
           done
