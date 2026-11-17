@@ -1219,12 +1219,15 @@ class _OutfitComposerState extends State<OutfitComposer> {
     if (items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 12),
-        child: _clayCard(
-          child: Row(children: [
-            const Icon(Icons.checkroom_outlined, color: _muted),
-            const SizedBox(width: 10),
-            Expanded(child: Text('$category · no clean options', style: const TextStyle(color: _muted))),
-          ]),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              const Icon(Icons.checkroom_outlined, color: _muted),
+              const SizedBox(width: 10),
+              Expanded(child: Text('$category · no clean options', style: const TextStyle(color: _muted))),
+            ]),
+          ),
         ),
       );
     }
