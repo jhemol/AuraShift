@@ -149,6 +149,34 @@ jobs:
         run: flutter test
         working-directory: mobile_app_build
 
+      - name: Validate mobile sync configuration
+        env:
+          WARDROBE_API_URL: ${{ vars.WARDROBE_API_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        shell: bash
+        run: |
+          if [ -z "$(printf '%s' "$WARDROBE_API_URL" | tr -d '[:space:]')" ]; then
+            echo "::error::WARDROBE_API_URL is empty. Add it under repository Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          if [ -z "$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]')" ]; then
+            echo "::error::SUPABASE_URL is empty. Add it under repository Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          if [ -z "$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '[:space:]')" ]; then
+            echo "::error::SUPABASE_PUBLISHABLE_KEY is empty. Add it under repository Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          api = urlparse(os.environ["WARDROBE_API_URL"].strip())
+          if api.scheme != "https" or not api.netloc or api.path not in ("", "/") or api.query or api.fragment:
+              raise SystemExit("WARDROBE_API_URL must be the HTTPS site origin only, without /api/health.")
+          PY
+
       - name: Build native Android debug APK
         env:
           WARDROBE_API_URL: ${{ vars.WARDROBE_API_URL }}

@@ -343,8 +343,12 @@ class _WardrobeHomeState extends State<WardrobeHome> {
   }
 
   Future<void> _syncNow() async {
-    if (!_store.canSync) {
-      _showMessage('Sign in and configure the wardrobe API to sync with the web app.');
+    if (_store.apiBaseUrl.isEmpty) {
+      _showMessage('This APK is missing WARDROBE_API_URL. Add it to GitHub Actions Variables and rebuild.');
+      return;
+    }
+    if (_store.syncStatus == 'Sign in to sync') {
+      _showMessage('Mobile sync needs an active Supabase sign-in. Check the Supabase build variables and sign in with your web account.');
       return;
     }
     final remote = await _store.load();
